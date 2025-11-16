@@ -1,0 +1,167 @@
+const { DataTypes, BelongsTo } = require("sequelize");
+const sequelize = require("../db/dbConfig");
+const Hospital = require("../model/hospitalMaster");
+const Nodal = require("../model/nodalMaster");
+const Doctor = require("../model/doctorRegistration");
+const RoleType = require("../model/roletypeMaster");
+
+const User = sequelize.define(
+  "user",
+  {
+    user_id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    wattsapp_number: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    mobile_number: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    alternate_number: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    first_name: {
+      type: DataTypes.STRING,
+    },
+    last_name: {
+      type: DataTypes.STRING,
+    },
+    gender: {
+      type: DataTypes.ENUM("Male", "Female", "Other"),
+      allowNull: false,
+    },
+    dob: {
+      type: DataTypes.DATEONLY,
+      allowNull: false,
+    },
+    address: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    city: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    state: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    pincode: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    username: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    module: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: false,
+    },
+    role: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: RoleType,
+        key: "id",
+      },
+      onDelete: "CASCADE",
+    },
+    isactive: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
+    created_by: {
+      type: DataTypes.STRING, // or FK to admin user
+      allowNull: true,
+    },
+    created_date: {
+      type: DataTypes.DATEONLY,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+    image: {
+      type: DataTypes.STRING, // store file path / URL
+      allowNull: true,
+    },
+    update_by: {
+      type: DataTypes.STRING,
+    },
+    update_date: {
+      type: DataTypes.DATEONLY,
+    },
+    hospitalid: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: Hospital,
+        key: "id",
+      },
+      onDelete: "SET NULL",
+    },
+    nodalid: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: Nodal,
+        key: "id",
+      },
+      onDelete: "SET NULL",
+    },
+    doctor_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: Doctor,
+        key: "id",
+      },
+      onDelete: "SET NULL",
+    },
+        nominee_name:{
+      type:DataTypes.STRING
+    },
+    nominee_contact:{
+      type:DataTypes.STRING
+    },
+        certificate:{
+      type:DataTypes.STRING
+    },
+  },
+  {
+    timestamps: true,
+    tableName: "users",
+  }
+);
+
+// Associations
+// Hospital and User
+User.belongsTo(Hospital, { foreignKey: "hospitalid" });
+Hospital.hasMany(User, { foreignKey: "hospitalid" });
+// User and Nodal
+User.belongsTo(Nodal, { foreignKey: "nodalid" });
+Nodal.hasMany(User, { foreignKey: "nodalid" });
+// User and Doctor
+Doctor.hasOne(User, { foreignKey: "doctor_id" });
+User.belongsTo(Doctor, { foreignKey: "doctor_id" });
+// User and Role
+User.belongsTo(RoleType, { foreignKey: "role", as: "roleType" });
+RoleType.hasMany(User, { foreignKey: "role", as: "users" });
+
+module.exports = User;

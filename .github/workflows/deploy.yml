@@ -1,0 +1,27 @@
+name: Deploy to Hostinger VPS
+
+on:
+  push:
+    branches:
+      - main  # or your deployment branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
+
+     
+      - name: Deploy via SSH
+        run: |
+         ssh -o StrictHostKeyChecking=no root@213.210.37.3 'cd /root/auth-micro && git pull origin main'
+      
+      
+
