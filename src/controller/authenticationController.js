@@ -270,10 +270,15 @@ const login = async (req, res) => {
       userid: user.user_id,
       role: user.role,
       roleType: roleType,
+      hospitalid: user.hospitalid,
+      nodalid: user.nodalid,
+      hospitalname: user.hospital?.hospitalname || null,
+      nodalname: user.nodal?.nodalname || null,
+      username: user.username,
+      module: user.module,
     };
     const responseData = {
       success: true,
-      first_name: user.first_name,
     };
 
     switch (roleType) {
@@ -284,9 +289,6 @@ const login = async (req, res) => {
               "Access denied: Phlebotomist must be assigned a hospital or nodal.",
           });
         }
-        responseData.hospitalname =
-          user.hospital?.hospitalname || "Unknown Hospital";
-        responseData.nodalname = user.nodal?.nodalname || "Unknown Nodal";
         break;
 
       case "reception":
@@ -383,6 +385,7 @@ const verifyOtp = async (req, res) => {
         userid: user.user_id,
         role: user.role,
         roleType: roleType ? roleType.roletype.toLowerCase() : "unknown",
+        username: user.username,
       },
       process.env.JWT_SECRET
     );
