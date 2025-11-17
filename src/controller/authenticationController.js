@@ -385,7 +385,6 @@ const verifyOtp = async (req, res) => {
         userid: user.user_id,
         role: user.role,
         roleType: roleType ? roleType.roletype.toLowerCase() : "unknown",
-        username: user.username,
       },
       process.env.JWT_SECRET
     );
