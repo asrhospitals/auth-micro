@@ -13,7 +13,7 @@ const RoleType = require("../model/roletypeMaster");
 const Hospital = require("../model/hospitalMaster");
 const Nodal = require("../model/nodalMaster");
 const Doctor = require("../model/doctorRegistration");
-const Session=require("../model/userSessions");
+const Session = require("../model/userSessions");
 
 /**
  * @description Checks if a user exists and creates a default admin user and role if the database is empty.
@@ -87,6 +87,9 @@ const createUser = async (req, res) => {
       created_by,
       image,
       module,
+      certificate,
+      nominee_contact,
+      nominee_name,
     } = req.body;
 
     // Check for existing user based on unique constraints
@@ -124,6 +127,9 @@ const createUser = async (req, res) => {
       created_by,
       image,
       module,
+      certificate,
+      nominee_contact,
+      nominee_name,
     });
 
     return res.status(201).json({
@@ -145,23 +151,78 @@ const assignRole = async (req, res) => {
   try {
     const { user_id, role, module, hospitalid, nodalid, doctor_id } = req.body;
 
-    const user = await User.findByPk(user_id);
+    let targetUserId = user_id;
+    let targetRoleId = role;
+
+    // 1. If doctor_id is provided, ensure a user exists for that doctor
+    if (doctor_id) {
+      let doctorUser = await User.findOne({ where: { doctor_id } });
+      const doctor = await Doctor.findByPk(doctor_id);
+
+      if (!doctor) {
+        return res.status(404).json({ message: "Doctor not found" });
+      }
+
+      const hashedPassword = await bcrypt.hash(doctor.ddob.toString(), 10);
+
+      if (!doctorUser) {
+        const doctorRole = await RoleType.findOne({
+          where: { roletype: "doctor" },
+        });
+        if (!doctorRole) {
+          return res
+            .status(404)
+            .json({ message: "Doctor role type not found" });
+        }
+
+        doctorUser = await User.create({
+          doctor_id,
+          role: doctorRole.id,
+          module,
+          hospitalid,
+          nodalid,
+          created_by: "admin",
+          created_date: new Date(),
+          wattsapp_number: doctor.dwhtsap,
+          mobile_number: doctor.dcnt,
+          email: doctor.demail,
+          first_name: doctor.dname,
+          gender: "Other",
+          dob: doctor.ddob,
+          username: doctor.demail,
+          password: hashedPassword,
+          image: doctor.dphoto,
+          certificate: doctor.dditsig,
+        });
+      }
+
+      // ✅ Always set targetUserId from doctorUser
+      targetUserId = doctorUser.user_id;
+      targetRoleId = doctorUser.role;
+      console.log(`Doctor user created/used with ID: ${targetUserId}`);
+    }
+
+    // 2. Fetch the user (either original or doctor-created)
+    const user = await User.findByPk(targetUserId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const roleRecord = await RoleType.findByPk(role);
+    // 3. Validate Role Existence
+    const roleRecord = await RoleType.findByPk(targetRoleId);
     if (!roleRecord) {
       return res.status(404).json({ message: "Invalid Role ID" });
     }
 
     const roleName = roleRecord.roletype.toLowerCase();
 
-    // Conditional Hospital/Association Validation Logic
-    const requiresHospitalOrNodal =
-      ["admin", "reception", "technician", "doctor", "hr"].includes(
-        roleName
-      ) === false; // True for roles that DO require association
+    // 4. Conditional Hospital/Association Validation
+    const requiresHospitalOrNodal = ![
+      "admin",
+      "reception",
+      "technician",
+      "hr",
+    ].includes(roleName);
 
     if (requiresHospitalOrNodal && !hospitalid) {
       return res
@@ -169,24 +230,23 @@ const assignRole = async (req, res) => {
         .json({ message: "Hospital ID is required for this role" });
     }
 
-    // Check if hospital exists if ID is provided
     if (hospitalid && !(await Hospital.findByPk(hospitalid))) {
       return res.status(400).json({ message: "Invalid Hospital ID provided." });
     }
 
-    // Check if nodal exists if ID is provided
     if (nodalid && !(await Nodal.findByPk(nodalid))) {
       return res.status(400).json({ message: "Invalid Nodal ID provided." });
     }
 
-    // Update user associations based on role
+    // 5. Update user associations based on role
     await user.update({
       role,
       module,
-      // Clear associations for admin, or use provided IDs otherwise
       hospitalid: roleName === "admin" ? null : hospitalid,
       nodalid: roleName === "admin" ? null : nodalid,
       doctor_id: roleName === "doctor" ? doctor_id : null,
+      update_by: "admin",
+      update_date: new Date(),
     });
 
     return res.status(200).json({
@@ -276,6 +336,7 @@ const login = async (req, res) => {
       nodalname: user.nodal?.nodalname || null,
       username: user.username,
       module: user.module,
+      digitsignature: user.certificate || null,
     };
     const responseData = {
       success: true,
@@ -309,13 +370,13 @@ const login = async (req, res) => {
 
       case "doctor":
         // Doctor association is often optional, check if linked Doctor data is available
-        tokenPayload.module = user.module;
-        responseData.module = user.module;
-        responseData.doctor = {
-          name: user.Doctor?.dname || null,
-          signature: user.Doctor?.dditsig || null,
-          profileImage: user.Doctor?.dphoto || null,
-        };
+        tokenPayload;
+        // responseData.module = user.module;
+        // responseData.doctor = {
+        //   name: user.Doctor?.dname || null,
+        //   signature: user.Doctor?.dditsig || null,
+        //   profileImage: user.Doctor?.dphoto || null,
+        // };
         break;
 
       default:
@@ -327,7 +388,7 @@ const login = async (req, res) => {
     await Session.create({
       user_id: user.user_id,
       ip_address: req.ip, // Express built-in IP detection
-      user_agent_info: req.headers['user-agent'], // NEW: Capture User-Agent
+      user_agent_info: req.headers["user-agent"], // NEW: Capture User-Agent
     });
 
     // 5. Generate and return the JWT token
@@ -372,10 +433,10 @@ const verifyOtp = async (req, res) => {
     // OTP is valid; delete it after successful verification
     await OTP.destroy({ where: { id: storedOtp.id } });
 
-        await Session.create({
-        user_id: user.user_id,
-        ip_address: req.ip, // Express built-in IP detection
-        user_agent_info: req.headers['user-agent'], // NEW: Capture User-Agent
+    await Session.create({
+      user_id: user.user_id,
+      ip_address: req.ip, // Express built-in IP detection
+      user_agent_info: req.headers["user-agent"], // NEW: Capture User-Agent
     });
 
     // Generate the JWT token
@@ -470,13 +531,11 @@ const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
     const user = await User.findByPk(id);
-
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
     return res.status(200).json(user);
   } catch (e) {
-    console.error("Failed to retrieve user:", e.message);
     return res
       .status(500)
       .json({ message: `Failed to retrieve user: ${e.message}` });

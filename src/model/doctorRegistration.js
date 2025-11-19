@@ -17,6 +17,9 @@ const Doctor = sequilize.define(
     ddob: {
       type: DataTypes.DATEONLY,
     },
+    daadhar:{
+      type: DataTypes.STRING,
+    },
     dqlf: {
       type: DataTypes.STRING,
     },
