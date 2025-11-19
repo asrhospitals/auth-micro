@@ -16,7 +16,7 @@ app.use(cors());
 // Routes
 app.use("/lims",AuthRoutes);
 // Routes for Admin Doctor handler
-app.use("/lims/doctor",checkAdmin, AuthRoutes);
+app.use("/lims/doctor", AuthRoutes);
 // Image Routes
 app.use("/lims/certificate", CertificateUploader);
 app.use("/lims/profile", ProfilePicture);

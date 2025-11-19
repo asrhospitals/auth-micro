@@ -178,7 +178,7 @@ const assignRole = async (req, res) => {
         doctorUser = await User.create({
           doctor_id,
           role: doctorRole.id,
-          module: doctor.ddpt,
+          module: [doctor.ddpt],
           hospitalid,
           nodalid,
           created_by: "admin",
@@ -221,6 +221,7 @@ const assignRole = async (req, res) => {
       "admin",
       "reception",
       "technician",
+      "doctor",
       "hr",
     ].includes(roleName);
 
@@ -253,10 +254,25 @@ const assignRole = async (req, res) => {
       message: "Role and associations assigned successfully",
     });
   } catch (err) {
-    console.error("Role Assignment Failed:", err.message);
-    return res
-      .status(500)
-      .json({ message: `Role Assignment Failed: ${err.message}` });
+    // Log full error object for debugging
+  console.error("Role Assignment Failed:", err);
+
+  // Optionally log specific fields if using Sequelize
+  if (err.errors) {
+    err.errors.forEach(e => console.error(`Field: ${e.path}, Message: ${e.message}`));
+  }
+
+  // Return detailed error info in response (safe subset)
+  return res.status(500).json({
+    message: "Role Assignment Failed",
+    error: {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,        // ⚠️ include only in dev, not in production
+      details: err.errors || null
+    }
+  });
+
   }
 };
 
