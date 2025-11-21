@@ -78,17 +78,34 @@ const getMySessionLogs = async (req, res) => {
     // This assumes authentication middleware has set req.user.userid
     const userId = req.user?.userid; 
 
+    // Pagination setup
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 20;
+    const offset = (page - 1) * limit; // <--- The calculated offset is correct
+
     try {
         if (!userId) {
             return res.status(401).json({ message: "User ID not found in token. Authentication required." });
         }
 
+        // 1. Get the total count for proper pagination metadata
+        const totalCount = await Session.count({
+            where: {
+                user_id: userId
+            }
+        });
+
+        // 2. Fetch the paginated logs
         const logs = await Session.findAll({
             where: {
                 user_id: userId
             },
             order: [["login_time", "DESC"]], // Show newest sessions first
-            attributes: ['session_id', 'login_time', 'logout_time', 'ip_address', 'user_agent_info']
+            attributes: ['session_id', 'login_time', 'logout_time', 'ip_address', 'user_agent_info'],
+            // --- Pagination Implementation ---
+            limit: limit, // <--- Use the limit
+            offset: offset // <--- Use the offset
+            // ---------------------------------
         });
 
         const formattedLogs = logs.map(session => ({
@@ -100,10 +117,19 @@ const getMySessionLogs = async (req, res) => {
             userAgent: session.user_agent_info,
             status: session.logout_time ? 'Closed' : 'Active'
         }));
+        
+        // 3. Update the response to include pagination metadata
+        const totalPages = Math.ceil(totalCount / limit);
 
         return res.status(200).json({
-            message: `Found ${formattedLogs.length} sessions for user ${userId}.`,
+            message: `Found ${formattedLogs.length} sessions (page ${page} of ${totalPages}) for user ${userId}.`,
             data: formattedLogs,
+            meta: {
+                totalSessions: totalCount,
+                currentPage: page,
+                limit: limit,
+                totalPages: totalPages
+            }
         });
 
     } catch (e) {
