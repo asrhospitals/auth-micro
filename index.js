@@ -11,6 +11,7 @@ const ProfilePicture= require("./src/controller/profileImageUploader");
 
 app.use(express.json());
 app.use(cors());
+app.set("trust proxy", true);
 
 
 // Routes

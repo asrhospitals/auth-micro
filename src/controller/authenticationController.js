@@ -178,7 +178,8 @@ const assignRole = async (req, res) => {
         doctorUser = await User.create({
           doctor_id,
           role: doctorRole.id,
-          module: [doctor.assign_ddpt],
+          // module: [doctor.assign_ddpt],
+          module: [doctor.assign_ddpt, doctor.ddpt],
           hospitalid,
           nodalid,
           created_by: "admin",
