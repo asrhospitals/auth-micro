@@ -9,6 +9,7 @@ const {
   searchUsers,
   getUserById,
   updateUsers,
+  logout,
 } = require("../controller/authenticationController");
 const { getMySessionLogs, getAllSessionLogs } = require("../controller/sessionController");
 const { authenticateToken, checkAdminRole } = require("../middleware/authMiddileware");
@@ -23,6 +24,7 @@ router.post("/auth/signup", createUser);
 router.post("/auth/login", login); 
 router.post("/auth/verify-otp", verifyOtp); // Kebab-case for URL
 router.post("/auth/resend-otp/:userId", resendOtp); // Kebab-case and camelCase for param
+router.post("/auth/logout",authenticateToken, logout); // Logout route
 
 // --- User Resource Routes (RESTful CRUD) ---
 // Base route for the user collection: /users

@@ -269,7 +269,6 @@ const assignRole = async (req, res) => {
     error: {
       name: err.name,
       message: err.message,
-      stack: err.stack,        // ⚠️ include only in dev, not in production
       details: err.errors || null
     }
   });
@@ -505,6 +504,34 @@ const resendOtp = async (req, res) => {
   }
 };
 
+
+/**
+ * @description Handle user logout by invalidating the session.record the logut time.
+ * @route POST /lims/api/auth/logout
+ */
+
+const logout = async (req, res) => {
+  try {
+    const { userid } = req.user; // Assuming user ID is available in req.user from auth middleware  
+    // Find the active session for the user
+    const session = await Session.findOne({
+      where: { user_id: userid, logout_time: null },
+      order: [['login_time', 'DESC']] // Get the most recent active session
+    });
+    if (!session) {
+      return res.status(404).json({ message: "Active session not found" });
+    }
+    // Update the session to set logout time
+    session.logout_time = new Date();
+    await session.save();
+    return res.status(200).json({ message: "Logout successful" });
+  }
+  catch (e) {
+    console.error("Logout Failed:", e.message);
+    return res.status(500).json({ message: "Logout Failed" });
+  }
+};
+
 /**
  * @description Retrieves a paginated list of all users.
  * @route GET /lims/api/users
@@ -708,4 +735,5 @@ module.exports = {
   getUserById,
   updateUsers,
   updateUserAssociations,
+  logout,
 };
