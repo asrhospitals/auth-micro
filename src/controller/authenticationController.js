@@ -183,7 +183,6 @@ const assignRole = async (req, res) => {
           hospitalid,
           nodalid,
           created_by: "admin",
-          created_date: new Date(),
           wattsapp_number: doctor.dwhtsap,
           mobile_number: doctor.dcnt,
           email: doctor.demail,
@@ -193,7 +192,7 @@ const assignRole = async (req, res) => {
           username: doctor.demail,
           password: hashedPassword,
           image: doctor.dphoto,
-          certificate: doctor.dditsig,
+          doc_sig: doctor.dditsig,
         });
       }
 
