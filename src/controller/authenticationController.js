@@ -180,8 +180,8 @@ const assignRole = async (req, res) => {
           role: doctorRole.id,
           // module: [doctor.assign_ddpt],
           module: [doctor.assign_ddpt, doctor.ddpt],
-          hospitalid,
-          nodalid,
+          hospitalid: doctor.hospitalid,
+          nodalid: doctor.nodalid,
           created_by: "admin",
           wattsapp_number: doctor.dwhtsap,
           mobile_number: doctor.dcnt,
@@ -351,7 +351,7 @@ const login = async (req, res) => {
       nodalname: user.nodal?.nodalname || null,
       username: user.username,
       module: user.module,
-      digitsignature: user.certificate || null,
+      digitsignature: user.doc_sig || null,
     };
     const responseData = {
       success: true,
