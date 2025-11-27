@@ -140,6 +140,18 @@ const User = sequelize.define(
     certificate: {
       type: DataTypes.STRING,
     },
+    failed_attempts: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    is_locked: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    locked_at:{
+      type: DataTypes.DATE,
+      allowNull:true,
+    }
   },
   {
     timestamps: true,

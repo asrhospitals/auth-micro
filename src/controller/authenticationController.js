@@ -255,23 +255,24 @@ const assignRole = async (req, res) => {
     });
   } catch (err) {
     // Log full error object for debugging
-  console.error("Role Assignment Failed:", err);
+    console.error("Role Assignment Failed:", err);
 
-  // Optionally log specific fields if using Sequelize
-  if (err.errors) {
-    err.errors.forEach(e => console.error(`Field: ${e.path}, Message: ${e.message}`));
-  }
-
-  // Return detailed error info in response (safe subset)
-  return res.status(500).json({
-    message: "Role Assignment Failed",
-    error: {
-      name: err.name,
-      message: err.message,
-      details: err.errors || null
+    // Optionally log specific fields if using Sequelize
+    if (err.errors) {
+      err.errors.forEach((e) =>
+        console.error(`Field: ${e.path}, Message: ${e.message}`)
+      );
     }
-  });
 
+    // Return detailed error info in response (safe subset)
+    return res.status(500).json({
+      message: "Role Assignment Failed",
+      error: {
+        name: err.name,
+        message: err.message,
+        details: err.errors || null,
+      },
+    });
   }
 };
 
@@ -300,13 +301,29 @@ const login = async (req, res) => {
         .json({ message: "No User found with this username." });
     }
 
+    if (user.is_locked) {
+      return res
+        .status(403)
+        .json({ message: "Account locked. Contact developer." });
+    }
+
     // 2. Compare the password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res
-        .status(401)
-        .json({ message: "Invalid credentials (Password mismatch)." });
+      // Ensure failed_attempts is initialized
+      await user.increment("failed_attempts", { by: 1 });
+      if (user.failed_attempts + 1 >= 3) {
+        user.is_locked = true;
+        user.locked_at = new Date();
+      }
+
+      await user.save();
+      return res.status(401).json({ message: "Invalid credentials" });
     }
+
+    // Reset attempts on success
+    user.failed_attempts = 0;
+    await user.save();
 
     // Get role type string
     const roleType = user.roleType
@@ -503,7 +520,6 @@ const resendOtp = async (req, res) => {
   }
 };
 
-
 /**
  * @description Handle user logout by invalidating the session.record the logut time.
  * @route POST /lims/api/auth/logout
@@ -511,11 +527,11 @@ const resendOtp = async (req, res) => {
 
 const logout = async (req, res) => {
   try {
-    const { userid } = req.user; // Assuming user ID is available in req.user from auth middleware  
+    const { userid } = req.user; // Assuming user ID is available in req.user from auth middleware
     // Find the active session for the user
     const session = await Session.findOne({
       where: { user_id: userid, logout_time: null },
-      order: [['login_time', 'DESC']] // Get the most recent active session
+      order: [["login_time", "DESC"]], // Get the most recent active session
     });
     if (!session) {
       return res.status(404).json({ message: "Active session not found" });
@@ -524,8 +540,7 @@ const logout = async (req, res) => {
     session.logout_time = new Date();
     await session.save();
     return res.status(200).json({ message: "Logout successful" });
-  }
-  catch (e) {
+  } catch (e) {
     console.error("Logout Failed:", e.message);
     return res.status(500).json({ message: "Logout Failed" });
   }
