@@ -37,7 +37,7 @@ const checkAdmin = async () => {
       // 2. Create Default Admin User
       const hashedPassword = await bcrypt.hash("Admin@123", 10);
       await User.create({
-        email,
+        email: process.env.PREDEFINED_EMAIL,
         first_name: "Asr",
         last_name: "Admin",
         mobile_number: "0000000000",
@@ -53,7 +53,7 @@ const checkAdmin = async () => {
         created_by: "system default",
         username: "Admin",
         password: hashedPassword,
-        role: adminRole.id,
+        role: ["admin"],
       });
 
       console.log("Default admin user created: Admin / Admin@123");
@@ -153,7 +153,7 @@ const assignRole = async (req, res) => {
     const { user_id, role, module, hospitalid, nodalid, doctor_id } = req.body;
 
     let targetUserId = user_id;
-    let targetRoleId = role;
+    let targetRoles = role;
 
     // 1. If doctor_id is provided, ensure a user exists for that doctor
     if (doctor_id) {
@@ -210,12 +210,14 @@ const assignRole = async (req, res) => {
     }
 
     // 3. Validate Role Existence
-    const roleRecord = await RoleType.findByPk(targetRoleId);
+    const roleRecord = await RoleType.findAll({
+      where: { roletype: { [Op.in]: targetRoles } },
+    });
     if (!roleRecord) {
-      return res.status(404).json({ message: "Invalid Role ID" });
+      return res.status(404).json({ message: "Invalid Role" });
     }
 
-    const roleName = roleRecord.roletype.toLowerCase();
+    const roleName = roleRecord.roletype;
 
     // 4. Conditional Hospital/Association Validation
     const requiresHospitalOrNodal = ![
@@ -285,7 +287,7 @@ const login = async (req, res) => {
         { model: Hospital, attributes: ["id", "hospitalname"] },
         { model: Nodal, attributes: ["id", "nodalname"] },
         { model: Doctor, attributes: ["dname", "dditsig", "dphoto"] },
-        { model: RoleType, as: "roleType", attributes: ["roletype"] },
+        // { model: RoleType, as: "roleType", attributes: ["roletype"] },
       ],
     });
 
@@ -312,7 +314,6 @@ const login = async (req, res) => {
         user.is_locked = true;
         user.locked_at = new Date();
       }
-
       await user.save();
       return res.status(401).json({ message: "Invalid credentials" });
     }
@@ -321,51 +322,7 @@ const login = async (req, res) => {
     user.failed_attempts = 0;
     await user.save();
 
-    // Get role type string
-    const roleType = user.roleType
-      ? user.roleType.roletype.toLowerCase()
-      : "unknown";
-    if (roleType === "unknown") {
-      return res
-        .status(500)
-        .json({ message: "User role type could not be determined." });
-    }
-
-    // --- Role Access Checks (Must pass before sending OTP) ---
-    switch (roleType) {
-      case "phlebotomist":
-        if (!user.hospitalid && !user.nodalid) {
-          return res.status(403).json({
-            message:
-              "Access denied: Phlebotomist must be assigned a hospital or nodal.",
-          });
-        }
-        break;
-
-      case "reception":
-      case "technician":
-        if (!user.nodalid) {
-          return res.status(403).json({
-            message: `Access denied: ${roleType} must be assigned a nodal.`,
-          });
-        }
-        break;
-
-      case "doctor":
-        if (!user.doctor_id) {
-          return res.status(403).json({
-            message:
-              "Access denied: Doctor must be linked to a doctor profile.",
-          });
-        }
-        break;
-
-      default:
-        break;
-    }
-
     // --- Send OTP for ALL successfully authenticated users ---
-
     const otp = generateOtp();
     // Delete any old OTP and create a new one
     await OTP.destroy({ where: { user_id: user.user_id } });
@@ -375,11 +332,10 @@ const login = async (req, res) => {
       expires_at: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    // const adminEmail =
-    //   roleType === "admin" ? user.email : process.env.PREDEFINED_EMAIL;
-
+    // Send OTP to user's registered email
     await sendOtp(user.email, otp);
 
+    // Respond indicating OTP sent
     return res.status(200).json({
       message: "OTP sent to registered email",
       userid: user.user_id,
@@ -400,58 +356,52 @@ const login = async (req, res) => {
  */
 const verifyOtp = async (req, res) => {
   try {
+    // 1. Extract userid and otp from request body
     const { userid, otp } = req.body;
 
-    const user = await User.findByPk(userid, {
-      include: [
-        { model: Hospital, attributes: ["id", "hospitalname"] },
-        { model: Nodal, attributes: ["id", "nodalname"] },
-        { model: Doctor, attributes: ["dname", "dditsig", "dphoto"] },
-        { model: RoleType, as: "roleType", attributes: ["roletype"] },
-      ],
-    });
+    // 2. Check if user exists
+    const user = await User.findByPk(userid);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Find and validate the OTP
+    // 3. Find and validate the OTP
     const storedOtp = await OTP.findOne({
       where: { user_id: userid, otp, expiresAt: { [Op.gt]: new Date() } },
     });
-
     if (!storedOtp) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    // OTP is valid; delete it after successful verification
+    // 4 OTP is valid; delete it after successful verification
     await OTP.destroy({ where: { id: storedOtp.id } });
 
+    // 5. Generate Sessions for the user
     await Session.create({
       user_id: user.user_id,
       ip_address: req.ip, // Express built-in IP detection
       user_agent_info: req.headers["user-agent"], // NEW: Capture User-Agent
     });
+    // 6. Return Roles
+    const availableRoles = user.role || [];
 
-    const roleType = await RoleType.findByPk(user.role);
+    if (availableRoles.includes("admin")) {
+      const tokenPayload = {
+        userid: user.user_id,
+        role: "admin",
+        username: user.username,
+      };
+      const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
+        expiresIn: "1h",
+      });
 
-    const tokenPayload = {
-      userid: user.user_id,
-      role: user.role,
-      roleType: roleType.roletype.toLowerCase(),
-      hospitalid: user.hospitalid,
-      nodalid: user.nodalid,
-      hospitalname: user.hospital?.hospitalname || null,
-      nodalname: user.nodal?.nodalname || null,
-      username: user.username,
-      module: user.module,
-      digitsignature: user.doc_sig || null,
-    };
-
-    // Generate the JWT token
-    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
-      expiresIn: "1h",
+      return res.status(200).json({
+        message: "OTP verified, login successful as Admin",
+        token,
+      });
+    }
+    return res.status(200).json({
+      message: "OTP verified, login successful",
+      roles: availableRoles,
     });
-    return res
-      .status(200)
-      .json({ message: "OTP verified, login successful", token });
   } catch (e) {
     console.error("OTP Verification Failed:", e.message);
     return res.status(500).json({ message: "OTP Verification Failed" });
@@ -519,6 +469,54 @@ const resendOtp = async (req, res) => {
 };
 
 /**
+ * @description Generate JWT after role selection
+ * @route POST /lims/api/auth/generate-token
+ */
+
+const selectRole = async (req, res) => {
+  try {
+    const { userid, selectedRole } = req.body;
+
+    const user = await User.findByPk(userid, {
+      include: [
+        { model: Hospital, attributes: ["id", "hospitalname"] },
+        { model: Nodal, attributes: ["id", "nodalname"] },
+        { model: Doctor, attributes: ["dname", "dditsig", "dphoto"] },
+      ],
+    });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Ensure selectedRole is valid for this user
+    if (!user.role.includes(selectedRole)) {
+      return res.status(403).json({ message: "Invalid role selection" });
+    }
+
+    // Generate JWT with selected role
+    const tokenPayload = {
+      userid: user.user_id,
+      roleType: selectedRole,
+      hospitalid: user.hospitalid,
+      nodalid: user.nodalid,
+      hospitalname: user.hospital?.hospitalname || null,
+      nodalname: user.nodal?.nodalname || null,
+      username: user.username,
+      module: user.module,
+      digitsignature: user.doc_sig || null,
+    };
+
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+    return res
+      .status(200)
+      .json({ message: "Token generated successfully", token });
+  } catch (e) {
+    console.error("Token Generation Failed:", e.message);
+    return res.status(500).json({ message: "Token Generation Failed" });
+  }
+};
+
+/**
  * @description Handle user logout by invalidating the session.record the logut time.
  * @route POST /lims/api/auth/logout
  */
@@ -554,29 +552,29 @@ const getAllUsers = async (req, res) => {
     const limit = Number(req.query.limit) || 10;
     const offset = (page - 1) * limit;
 
- const { count, rows } = await User.findAndCountAll({
-  attributes: {
-    exclude: ["password", "failed_attempts", "is_locked", "locked_at"],
-  },
-  include: [
-    {
-      model: RoleType,
-      as: "roleType",
-      attributes: ["roletype"],
-    },
-    {
-      model: Hospital,
-      attributes: [ "hospitalname"],
-    },
-    {
-      model: Nodal,
-      attributes: [ "nodalname"],
-    },
-  ],
-  limit,
-  offset,
-  order: [["user_id", "ASC"]],
-});
+    const { count, rows } = await User.findAndCountAll({
+      attributes: {
+        exclude: ["password", "failed_attempts", "is_locked", "locked_at"],
+      },
+      include: [
+        {
+          model: RoleType,
+          as: "roleType",
+          attributes: ["roletype"],
+        },
+        {
+          model: Hospital,
+          attributes: ["hospitalname"],
+        },
+        {
+          model: Nodal,
+          attributes: ["nodalname"],
+        },
+      ],
+      limit,
+      offset,
+      order: [["user_id", "ASC"]],
+    });
 
     const totalPages = Math.ceil(count / limit);
 
@@ -773,4 +771,5 @@ module.exports = {
   updateUsers,
   updateUserAssociations,
   logout,
+  selectRole,
 };

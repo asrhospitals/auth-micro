@@ -75,13 +75,8 @@ const User = sequelize.define(
       allowNull: false,
     },
     role: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true,
-      references: {
-        model: RoleType,
-        key: "id",
-      },
-      onDelete: "CASCADE",
     },
     isactive: {
       type: DataTypes.BOOLEAN,
@@ -173,7 +168,7 @@ Nodal.hasMany(User, { foreignKey: "nodalid" });
 Doctor.hasOne(User, { foreignKey: "doctor_id" });
 User.belongsTo(Doctor, { foreignKey: "doctor_id" });
 // User and Role
-User.belongsTo(RoleType, { foreignKey: "role", as: "roleType" });
-RoleType.hasMany(User, { foreignKey: "role", as: "users" });
+// User.belongsTo(RoleType, { foreignKey: "role", as: "roleType" });
+// RoleType.hasMany(User, { foreignKey: "role", as: "users" });
 
 module.exports = User;

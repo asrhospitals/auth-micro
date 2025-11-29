@@ -53,32 +53,33 @@ const authenticateToken = (req, res, next) => {
  * @param {function} next - Next middleware function
  */
 const checkAdminRole = async (req, res, next) => {
-    // Safely retrieve and normalize the roleType from the token payload (req.user)
-    // Using optional chaining (?. ) prevents crashing if req.user or req.user.roleType is undefined.
-    // This is the core fix for the "Cannot read properties of undefined (reading 'roleType')" error.
-    const roleType = req.user?.roleType?.toLowerCase(); 
+  // Safely retrieve and normalize the roleType from the token payload (req.user)
+  // Using optional chaining (?. ) prevents crashing if req.user or req.user.roleType is undefined.
+  // This is the core fix for the "Cannot read properties of undefined (reading 'roleType')" error.
+  const roleType = Array.isArray(req.user?.roleType)
+    ? req.user.roleType.map((role) => role.toLowerCase())
+    : [];
 
-    if (!roleType) {
-        // If req.user is missing OR req.user.roleType is missing
-        return res.status(403).json({ 
-            message: "Authorization Failed. User role information is missing or token is invalid.",
-            error: "FORBIDDEN_ROLE_MISSING"
-        });
-    }
+  if (!roleType) {
+    // If req.user is missing OR req.user.roleType is missing
+    return res.status(403).json({
+      message:
+        "Authorization Failed. User role information is missing or token is invalid.",
+      error: "FORBIDDEN_ROLE_MISSING",
+    });
+  }
 
-    console.log(roleType);
-    
-    
-    if (roleType === 'admin') {
-        next();
-    } else {
-        return res.status(403).json({
-            message: "Access Denied. Only administrators can view all session logs.",
-            error: "FORBIDDEN_INSUFFICIENT_PRIVILEGES"
-        });
-    }
+  console.log(roleType);
+
+  if (roleType.includes("admin")) {
+    next();
+  } else {
+    return res.status(403).json({
+      message: "Access Denied. Only administrators can view all session logs.",
+      error: "FORBIDDEN_INSUFFICIENT_PRIVILEGES",
+    });
+  }
 };
-
 
 module.exports={authenticateToken,checkAdminRole};
 
