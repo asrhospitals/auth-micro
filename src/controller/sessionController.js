@@ -102,6 +102,9 @@ const getMySessionLogs = async (req, res) => {
             },
             order: [["login_time", "DESC"]], // Show newest sessions first
             attributes: ['session_id', 'login_time', 'logout_time', 'ip_address', 'user_agent_info'],
+            include: [
+                { model: User, as: "users", attributes: ['user_id', 'username', 'first_name', 'last_name', 'email'] }
+            ],
             // --- Pagination Implementation ---
             limit: limit, // <--- Use the limit
             offset: offset // <--- Use the offset
@@ -115,7 +118,13 @@ const getMySessionLogs = async (req, res) => {
             duration: session.logout_time ? (session.logout_time.getTime() - session.login_time.getTime()) / 1000 : null, // Duration in seconds
             ipAddress: session.ip_address,
             userAgent: session.user_agent_info,
-            status: session.logout_time ? 'Closed' : 'Active'
+            status: session.logout_time ? 'Closed' : 'Active',
+            user: {
+                userId: session.users.user_id,
+                username: session.users.username,
+                fullName: `${session.users.first_name} ${session.users.last_name}`,
+                email: session.users.email
+            }
         }));
         
         // 3. Update the response to include pagination metadata
