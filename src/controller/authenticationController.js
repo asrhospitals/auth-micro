@@ -37,7 +37,7 @@ const checkAdmin = async () => {
       // 2. Create Default Admin User
       const hashedPassword = await bcrypt.hash("Admin@123", 10);
       await User.create({
-        email: process.env.PREDEFINED_EMAIL,
+        email,
         first_name: "Asr",
         last_name: "Admin",
         mobile_number: "0000000000",
@@ -375,10 +375,10 @@ const login = async (req, res) => {
       expires_at: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    const adminEmail =
-      roleType === "admin" ? process.env.PREDEFINED_EMAIL : user.email;
+    // const adminEmail =
+    //   roleType === "admin" ? user.email : process.env.PREDEFINED_EMAIL;
 
-    await sendOtp(adminEmail, otp);
+    await sendOtp(user.email, otp);
 
     return res.status(200).json({
       message: "OTP sent to registered email",
@@ -477,7 +477,6 @@ const resendOtp = async (req, res) => {
     // Update OTP in the database (delete old, create new)
     await OTP.destroy({ where: { user_id: userId } });
     const expirationTime = new Date(Date.now() + 10 * 60 * 1000);
-
     await OTP.create({ user_id: userId, otp, expiresAt: expirationTime });
 
     // 3. Determine the correct email target (Consistent with login logic)
@@ -486,19 +485,20 @@ const resendOtp = async (req, res) => {
       : "unknown";
 
     // Assume 'admin' uses a predefined email, and others use their registered email
-    const targetEmail =
-      roleType === "admin" ? process.env.PREDEFINED_EMAIL : user.email;
+    // const targetEmail =
+    //   roleType === "admin" ? user.email : process.env.PREDEFINED_EMAIL;
+    await sendOtp(user.email, otp);
 
     // 4. Send the OTP (Handle potential send failures)
-    if (targetEmail) {
+    if (user.email) {
       try {
         // await sendOtp(targetEmail, otp); // Uncomment when ready to send emails
         console.log(
-          `New OTP for user ${userId} (${targetEmail}) successfully stored and sent.`
+          `New OTP for user ${userId} (${user.email}) successfully stored and sent.`
         );
       } catch (emailError) {
         console.error(
-          `ERROR: Failed to send OTP to ${targetEmail}:`,
+          `ERROR: Failed to send OTP to ${user.email}:`,
           emailError.message
         );
         // Return a 200/OK status since the DB update succeeded,
@@ -555,7 +555,9 @@ const getAllUsers = async (req, res) => {
     const offset = (page - 1) * limit;
 
     const { count, rows } = await User.findAndCountAll({
-      attributes:{ exclude: ['password', 'failed_attempts', 'is_locked', 'locked_at'] }, 
+      attributes: {
+        exclude: ["password", "failed_attempts", "is_locked", "locked_at"],
+      },
       limit: limit,
       offset: offset,
       order: [["user_id", "ASC"]],
@@ -587,7 +589,11 @@ const getAllUsers = async (req, res) => {
 const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await User.findByPk(id,{ attributes:{ exclude: ['password', 'failed_attempts', 'is_locked', 'locked_at'] } });
+    const user = await User.findByPk(id, {
+      attributes: {
+        exclude: ["password", "failed_attempts", "is_locked", "locked_at"],
+      },
+    });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -628,7 +634,9 @@ const searchUsers = async (req, res) => {
 
     const users = await User.findAll({
       where: filters,
-      attributes:{ exclude: ['password', 'failed_attempts', 'is_locked', 'locked_at'] }, 
+      attributes: {
+        exclude: ["password", "failed_attempts", "is_locked", "locked_at"],
+      },
       order: [["user_id", "ASC"]],
     });
 
