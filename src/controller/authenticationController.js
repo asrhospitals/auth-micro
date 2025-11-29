@@ -480,9 +480,9 @@ const resendOtp = async (req, res) => {
     await OTP.create({ user_id: userId, otp, expiresAt: expirationTime });
 
     // 3. Determine the correct email target (Consistent with login logic)
-    const roleType = user.roleType
-      ? user.roleType.roletype.toLowerCase()
-      : "unknown";
+    // const roleType = user.roleType
+    //   ? user.roleType.roletype.toLowerCase()
+    //   : "unknown";
 
     // Assume 'admin' uses a predefined email, and others use their registered email
     // const targetEmail =
@@ -554,14 +554,29 @@ const getAllUsers = async (req, res) => {
     const limit = Number(req.query.limit) || 10;
     const offset = (page - 1) * limit;
 
-    const { count, rows } = await User.findAndCountAll({
-      attributes: {
-        exclude: ["password", "failed_attempts", "is_locked", "locked_at"],
-      },
-      limit: limit,
-      offset: offset,
-      order: [["user_id", "ASC"]],
-    });
+ const { count, rows } = await User.findAndCountAll({
+  attributes: {
+    exclude: ["password", "failed_attempts", "is_locked", "locked_at"],
+  },
+  include: [
+    {
+      model: RoleType,
+      as: "roleType",
+      attributes: ["roletype"],
+    },
+    {
+      model: Hospital,
+      attributes: [ "hospitalname"],
+    },
+    {
+      model: Nodal,
+      attributes: [ "nodalname"],
+    },
+  ],
+  limit,
+  offset,
+  order: [["user_id", "ASC"]],
+});
 
     const totalPages = Math.ceil(count / limit);
 
