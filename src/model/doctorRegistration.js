@@ -1,6 +1,7 @@
 const { DataTypes } = require("sequelize");
 const sequilize =  require("../db/dbConfig");
 
+
 const Doctor = sequilize.define(
   "doctor",
   {
@@ -21,13 +22,20 @@ const Doctor = sequilize.define(
       type: DataTypes.STRING,
     },
     dqlf: {
-      type: DataTypes.STRING,
+      type: DataTypes.ARRAY(DataTypes.STRING),
     },
     dspclty: {
-      type: DataTypes.STRING,
+      type: DataTypes.ARRAY(DataTypes.STRING), 
+    },
+    dnb:{
+      type: DataTypes.BOOLEAN,
+      allowNull:true
     },
     ddpt: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING,  
+    },
+    assign_ddpt:{
+       type: DataTypes.ARRAY(DataTypes.STRING),
     },
     dregno: {
       type: DataTypes.STRING,
@@ -53,9 +61,22 @@ const Doctor = sequilize.define(
     dditsig: {
       type: DataTypes.STRING,
     },
+    dcertificate:{
+      type: DataTypes.STRING,
+    },
+    dindemnity:{
+      type: DataTypes.BOOLEAN,
+      allowNull:true
+    },
+    hospitalid:{
+      type: DataTypes.INTEGER,
+    },
+    nodalid:{
+      type: DataTypes.INTEGER,
+    },
     dstatus: {
       type: DataTypes.ENUM,
-      values: ["active", "pending"],
+      values: ["active", "pending","rejected"],
       defaultValue: "pending",
     },
   },

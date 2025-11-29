@@ -37,7 +37,7 @@ const checkAdmin = async () => {
       // 2. Create Default Admin User
       const hashedPassword = await bcrypt.hash("Admin@123", 10);
       await User.create({
-        email: "admin@example.com",
+        email: process.env.PREDEFINED_EMAIL,
         first_name: "Asr",
         last_name: "Admin",
         mobile_number: "0000000000",
@@ -50,7 +50,7 @@ const checkAdmin = async () => {
         state: "Admin State",
         pincode: "000000",
         module: ["admin"],
-        created_by: 0,
+        created_by: "system default",
         username: "Admin",
         password: hashedPassword,
         role: adminRole.id,
@@ -60,6 +60,7 @@ const checkAdmin = async () => {
     }
   } catch (error) {
     console.error(`Error checking admin user: ${error.message}`);
+    console.dir(error, { depth: null });
   }
 };
 
@@ -257,13 +258,6 @@ const assignRole = async (req, res) => {
     // Log full error object for debugging
     console.error("Role Assignment Failed:", err);
 
-    // Optionally log specific fields if using Sequelize
-    if (err.errors) {
-      err.errors.forEach((e) =>
-        console.error(`Field: ${e.path}, Message: ${e.message}`)
-      );
-    }
-
     // Return detailed error info in response (safe subset)
     return res.status(500).json({
       message: "Role Assignment Failed",
@@ -286,7 +280,7 @@ const login = async (req, res) => {
 
     // 1. Find user and include associated models
     const user = await User.findOne({
-      where: { username },
+      where: { username: username.trim() },
       include: [
         { model: Hospital, attributes: ["id", "hospitalname"] },
         { model: Nodal, attributes: ["id", "nodalname"] },
@@ -300,6 +294,8 @@ const login = async (req, res) => {
         .status(404)
         .json({ message: "No User found with this username." });
     }
+
+    // --- ACCOUNT LOCKING CHECK & HANDLING (Strong Security) ---
 
     if (user.is_locked) {
       return res
@@ -335,45 +331,7 @@ const login = async (req, res) => {
         .json({ message: "User role type could not be determined." });
     }
 
-    // 3. Handle Admin Users (OTP Flow)
-    if (roleType === "admin") {
-      const otp = generateOtp();
-      // Delete any old OTP and create a new one
-      await OTP.destroy({ where: { user_id: user.user_id } });
-      await OTP.create({
-        user_id: user.user_id,
-        otp,
-        expires_at: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
-      });
-      // await sendOtp(process.env.PREDEFINED_EMAIL, otp); // Assuming this is defined
-
-      return res.status(200).json({
-        message: "Admin detected. OTP sent for verification.",
-        id: user.user_id,
-        role: user.role,
-        roleType: roleType,
-        // WARNING: Returning OTP in response is a security risk. Should only be returned here for testing.
-        otp: otp,
-      });
-    }
-
-    // 4. Handle Role-Specific Access Checks & Token Generation
-    const tokenPayload = {
-      userid: user.user_id,
-      role: user.role,
-      roleType: roleType,
-      hospitalid: user.hospitalid,
-      nodalid: user.nodalid,
-      hospitalname: user.hospital?.hospitalname || null,
-      nodalname: user.nodal?.nodalname || null,
-      username: user.username,
-      module: user.module,
-      digitsignature: user.doc_sig || null,
-    };
-    const responseData = {
-      success: true,
-    };
-
+    // --- Role Access Checks (Must pass before sending OTP) ---
     switch (roleType) {
       case "phlebotomist":
         if (!user.hospitalid && !user.nodalid) {
@@ -391,46 +349,40 @@ const login = async (req, res) => {
             message: `Access denied: ${roleType} must be assigned a nodal.`,
           });
         }
-        tokenPayload.nodalid = user.nodalid;
-        responseData.nodalname = user.Nodal?.nodalname || "Unknown Nodal";
-        // Assuming technician has module information
-        if (roleType === "technician") {
-          tokenPayload.module = user.module;
-          responseData.module = user.module;
-        }
         break;
 
       case "doctor":
-        // Doctor association is often optional, check if linked Doctor data is available
-        tokenPayload;
-        // responseData.module = user.module;
-        // responseData.doctor = {
-        //   name: user.Doctor?.dname || null,
-        //   signature: user.Doctor?.dditsig || null,
-        //   profileImage: user.Doctor?.dphoto || null,
-        // };
+        if (!user.doctor_id) {
+          return res.status(403).json({
+            message:
+              "Access denied: Doctor must be linked to a doctor profile.",
+          });
+        }
         break;
 
       default:
-        // Other roles (e.g., HR, default user) without specific checks
         break;
     }
 
-    // 5. Session Tracking (Non-Admin Users only)
-    await Session.create({
+    // --- Send OTP for ALL successfully authenticated users ---
+
+    const otp = generateOtp();
+    // Delete any old OTP and create a new one
+    await OTP.destroy({ where: { user_id: user.user_id } });
+    await OTP.create({
       user_id: user.user_id,
-      ip_address: req.ip, // Express built-in IP detection
-      user_agent_info: req.headers["user-agent"], // NEW: Capture User-Agent
+      otp,
+      expires_at: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    // 5. Generate and return the JWT token
-    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
-      // expiresIn: '1h'
-    });
+    const adminEmail =
+      roleType === "admin" ? process.env.PREDEFINED_EMAIL : user.email;
+
+    await sendOtp(adminEmail, otp);
 
     return res.status(200).json({
-      ...responseData,
-      token,
+      message: "OTP sent to registered email",
+      userid: user.user_id,
     });
   } catch (e) {
     console.error("Login attempt failed:", e);
@@ -450,7 +402,14 @@ const verifyOtp = async (req, res) => {
   try {
     const { userid, otp } = req.body;
 
-    const user = await User.findByPk(userid);
+    const user = await User.findByPk(userid, {
+      include: [
+        { model: Hospital, attributes: ["id", "hospitalname"] },
+        { model: Nodal, attributes: ["id", "nodalname"] },
+        { model: Doctor, attributes: ["dname", "dditsig", "dphoto"] },
+        { model: RoleType, as: "roleType", attributes: ["roletype"] },
+      ],
+    });
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Find and validate the OTP
@@ -471,17 +430,25 @@ const verifyOtp = async (req, res) => {
       user_agent_info: req.headers["user-agent"], // NEW: Capture User-Agent
     });
 
-    // Generate the JWT token
     const roleType = await RoleType.findByPk(user.role);
-    const token = jwt.sign(
-      {
-        userid: user.user_id,
-        role: user.role,
-        roleType: roleType ? roleType.roletype.toLowerCase() : "unknown",
-      },
-      process.env.JWT_SECRET
-    );
 
+    const tokenPayload = {
+      userid: user.user_id,
+      role: user.role,
+      roleType: roleType.roletype.toLowerCase(),
+      hospitalid: user.hospitalid,
+      nodalid: user.nodalid,
+      hospitalname: user.hospital?.hospitalname || null,
+      nodalname: user.nodal?.nodalname || null,
+      username: user.username,
+      module: user.module,
+      digitsignature: user.doc_sig || null,
+    };
+
+    // Generate the JWT token
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
     return res
       .status(200)
       .json({ message: "OTP verified, login successful", token });
@@ -509,9 +476,40 @@ const resendOtp = async (req, res) => {
 
     // Update OTP in the database (delete old, create new)
     await OTP.destroy({ where: { user_id: userId } });
-    await OTP.create({ user_id: userId, otp });
+    const expirationTime = new Date(Date.now() + 10 * 60 * 1000);
 
-    // await sendOtp(process.env.PREDEFINED_EMAIL, otp); // Assuming email is the target
+    await OTP.create({ user_id: userId, otp, expiresAt: expirationTime });
+
+    // 3. Determine the correct email target (Consistent with login logic)
+    const roleType = user.roleType
+      ? user.roleType.roletype.toLowerCase()
+      : "unknown";
+
+    // Assume 'admin' uses a predefined email, and others use their registered email
+    const targetEmail =
+      roleType === "admin" ? process.env.PREDEFINED_EMAIL : user.email;
+
+    // 4. Send the OTP (Handle potential send failures)
+    if (targetEmail) {
+      try {
+        // await sendOtp(targetEmail, otp); // Uncomment when ready to send emails
+        console.log(
+          `New OTP for user ${userId} (${targetEmail}) successfully stored and sent.`
+        );
+      } catch (emailError) {
+        console.error(
+          `ERROR: Failed to send OTP to ${targetEmail}:`,
+          emailError.message
+        );
+        // Return a 200/OK status since the DB update succeeded,
+        // but include a specific message about the delivery failure.
+        return res.status(200).json({
+          message:
+            "OTP updated in DB, but email delivery failed. Please try again or check server logs.",
+          deliveryError: true,
+        });
+      }
+    }
 
     return res.status(200).json({ message: "OTP resent successfully" });
   } catch (e) {
@@ -557,6 +555,7 @@ const getAllUsers = async (req, res) => {
     const offset = (page - 1) * limit;
 
     const { count, rows } = await User.findAndCountAll({
+      attributes:{ exclude: ['password', 'failed_attempts', 'is_locked', 'locked_at'] }, 
       limit: limit,
       offset: offset,
       order: [["user_id", "ASC"]],
@@ -588,7 +587,7 @@ const getAllUsers = async (req, res) => {
 const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await User.findByPk(id);
+    const user = await User.findByPk(id,{ attributes:{ exclude: ['password', 'failed_attempts', 'is_locked', 'locked_at'] } });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -629,6 +628,7 @@ const searchUsers = async (req, res) => {
 
     const users = await User.findAll({
       where: filters,
+      attributes:{ exclude: ['password', 'failed_attempts', 'is_locked', 'locked_at'] }, 
       order: [["user_id", "ASC"]],
     });
 

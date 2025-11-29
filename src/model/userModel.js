@@ -1,4 +1,4 @@
-const { DataTypes, BelongsTo } = require("sequelize");
+const { DataTypes } = require("sequelize");
 const sequelize = require("../db/dbConfig");
 const Hospital = require("../model/hospitalMaster");
 const Nodal = require("../model/nodalMaster");

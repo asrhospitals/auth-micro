@@ -1,3 +1,4 @@
+require("dotenv").config();
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
@@ -13,10 +14,9 @@ async function hashOtp(otp) {
 const sendOtp = async (email, otp) => {
   // Set up the email transporter
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+   host: "smtp.gmail.com",
     secure: true,
     port: 465,
-
     auth: {
       user: process.env.EMAIL_USER, // your email
       pass: process.env.EMAIL_PASS, // your email password or app-specific password
@@ -31,6 +31,8 @@ const sendOtp = async (email, otp) => {
     text: `Your OTP is: ${otp}`,
   };
   console.log(otp);
+
+  
 
   // Send the email
   try {
