@@ -22,7 +22,7 @@ const router = express.Router();
 // --- Authentication & Public Routes ---
 // Typically prefixed with /auth/ for clarity
 router.post("/auth/signup", createUser); 
-router.post("/auth/login", LoginrateLimiter,login); 
+router.post("/auth/login",login); 
 router.post("/auth/verify-otp", verifyOtp); // Kebab-case for URL
 router.post("/auth/resend-otp/:userId",OtprateLimiter, resendOtp); // Kebab-case and camelCase for param
 router.post("/auth/logout",authenticateToken, logout); // Logout route
