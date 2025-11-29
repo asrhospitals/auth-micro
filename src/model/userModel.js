@@ -70,9 +70,17 @@ const User = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    module: {
+    department: {
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: false,
+    },
+    authdiscper:{
+      type: DataTypes.INTEGER,
+      defaultValue:0,
+    },
+    discountauthorization:{
+      type: DataTypes.BOOLEAN,
+      defaultValue:false,
     },
     role: {
       type: DataTypes.ARRAY(DataTypes.STRING),

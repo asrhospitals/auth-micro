@@ -25,7 +25,7 @@ app.use("/lims/profile", ProfilePicture);
 const server = async () => {
   try {
     await sequelize.authenticate();
-    //  await sequelize.sync({ alter: true });
+      // await sequelize.sync();
     await checkAdmin();
     console.log("Database connection established successfully.");
     app.listen(PORT, () => {

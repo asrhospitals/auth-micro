@@ -49,7 +49,7 @@ const checkAdmin = async () => {
         city: "Admin City",
         state: "Admin State",
         pincode: "000000",
-        module: ["admin"],
+        department: ["admin"],
         created_by: "system default",
         username: "Admin",
         password: hashedPassword,
@@ -87,8 +87,10 @@ const createUser = async (req, res) => {
       password,
       created_by,
       image,
-      module,
+      department,
       certificate,
+      authdiscper,
+      discountauthorization,
       nominee_contact,
       nominee_name,
     } = req.body;
@@ -127,7 +129,9 @@ const createUser = async (req, res) => {
       password: hashedPassword,
       created_by,
       image,
-      module,
+      department,
+      authdiscper,
+      discountauthorization,
       certificate,
       nominee_contact,
       nominee_name,
@@ -150,7 +154,7 @@ const createUser = async (req, res) => {
  */
 const assignRole = async (req, res) => {
   try {
-    const { user_id, role, module, hospitalid, nodalid, doctor_id } = req.body;
+    const { user_id, role, department, hospitalid, nodalid, doctor_id } = req.body;
 
     let targetUserId = user_id;
     let targetRoles = role;
@@ -179,8 +183,7 @@ const assignRole = async (req, res) => {
         doctorUser = await User.create({
           doctor_id,
           role: doctorRole.id,
-          // module: [doctor.assign_ddpt],
-          module: [doctor.assign_ddpt, doctor.ddpt],
+          department: [doctor.assign_ddpt, doctor.ddpt],
           hospitalid: doctor.hospitalid,
           nodalid: doctor.nodalid,
           created_by: "admin",
@@ -245,7 +248,9 @@ const assignRole = async (req, res) => {
     // 5. Update user associations based on role
     await user.update({
       role,
-      module,
+      department,
+      authdiscper,
+      discountauthorization,
       hospitalid: roleName === "admin" ? null : hospitalid,
       nodalid: roleName === "admin" ? null : nodalid,
       doctor_id: roleName === "doctor" ? doctor_id : null,
@@ -500,7 +505,9 @@ const selectRole = async (req, res) => {
       hospitalname: user.hospital?.hospitalname || null,
       nodalname: user.nodal?.nodalname || null,
       username: user.username,
-      module: user.module,
+      department: user.department,
+      authdiscper: user.authdiscper,
+      discountauthorization: user.discountauthorization,
       digitsignature: user.doc_sig || null,
     };
 
@@ -684,7 +691,7 @@ const updateUsers = async (req, res) => {
       pincode,
       username,
       password,
-      module,
+      department,
       isactive,
     } = req.body;
 
@@ -707,7 +714,7 @@ const updateUsers = async (req, res) => {
       state,
       pincode,
       username,
-      module,
+      department,
       isactive,
     };
 
@@ -735,14 +742,14 @@ const updateUsers = async (req, res) => {
 const updateUserAssociations = async (req, res) => {
   try {
     const { id } = req.params;
-    const { role, module, hospitalid, nodalid } = req.body;
+    const { role, department, hospitalid, nodalid } = req.body;
 
     const user = await User.findByPk(id);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const updateFields = { role, module, hospitalid, nodalid };
+    const updateFields = { role, department, authdiscper, discountauthorization, hospitalid, nodalid };
 
     await user.update(updateFields);
 
