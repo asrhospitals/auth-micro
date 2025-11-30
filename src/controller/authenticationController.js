@@ -154,7 +154,16 @@ const createUser = async (req, res) => {
  */
 const assignRole = async (req, res) => {
   try {
-    const { user_id, role, department, hospitalid, nodalid, doctor_id } = req.body;
+    const {
+      user_id,
+      role,
+      department,
+      hospitalid,
+      nodalid,
+      doctor_id,
+      authdiscper,
+      discountauthorization,
+    } = req.body;
 
     let targetUserId = user_id;
     let targetRoles = role;
@@ -202,7 +211,7 @@ const assignRole = async (req, res) => {
 
       // ✅ Always set targetUserId from doctorUser
       targetUserId = doctorUser.user_id;
-      targetRoleId = doctorUser.role;
+      targetRoles = doctorUser.role;
       console.log(`Doctor user created/used with ID: ${targetUserId}`);
     }
 
@@ -287,7 +296,9 @@ const login = async (req, res) => {
 
     // 1. Find user and include associated models
     const user = await User.findOne({
-      where: { username: username.trim() },
+      where: {
+        [Op.or]: [{ username: username.trim() }, { email: username.trim() }],
+      },
       include: [
         { model: Hospital, attributes: ["id", "hospitalname"] },
         { model: Nodal, attributes: ["id", "nodalname"] },
@@ -564,11 +575,7 @@ const getAllUsers = async (req, res) => {
         exclude: ["password", "failed_attempts", "is_locked", "locked_at"],
       },
       include: [
-        {
-          model: RoleType,
-          as: "roleType",
-          attributes: ["roletype"],
-        },
+      
         {
           model: Hospital,
           attributes: ["hospitalname"],
@@ -749,7 +756,14 @@ const updateUserAssociations = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const updateFields = { role, department, authdiscper, discountauthorization, hospitalid, nodalid };
+    const updateFields = {
+      role,
+      department,
+      authdiscper,
+      discountauthorization,
+      hospitalid,
+      nodalid,
+    };
 
     await user.update(updateFields);
 
