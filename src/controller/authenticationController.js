@@ -353,7 +353,7 @@ const login = async (req, res) => {
 
     // Respond indicating OTP sent
     return res.status(200).json({
-      message: "OTP sent to registered email",
+      message: `OTP sent to your registered email ${user.email}`,
       userid: user.user_id,
     });
   } catch (e) {
@@ -523,7 +523,7 @@ const selectRole = async (req, res) => {
     };
 
     const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
-      expiresIn: "1h",
+      
     });
     return res
       .status(200)
