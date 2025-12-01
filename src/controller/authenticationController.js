@@ -406,7 +406,6 @@ const verifyOtp = async (req, res) => {
         username: user.username,
       };
       const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
-        expiresIn: "1h",
       });
 
       return res.status(200).json({
