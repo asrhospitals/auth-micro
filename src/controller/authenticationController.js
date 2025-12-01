@@ -522,9 +522,7 @@ const selectRole = async (req, res) => {
       digitsignature: user.doc_sig || null,
     };
 
-    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
-      
-    });
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {});
     return res
       .status(200)
       .json({ message: "Token generated successfully", token });
@@ -575,7 +573,6 @@ const getAllUsers = async (req, res) => {
         exclude: ["password", "failed_attempts", "is_locked", "locked_at"],
       },
       include: [
-      
         {
           model: Hospital,
           attributes: ["hospitalname"],
