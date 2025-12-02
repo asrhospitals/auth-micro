@@ -338,45 +338,45 @@ const login = async (req, res) => {
     user.failed_attempts = 0;
     await user.save();
     // A Supaer User for Developer for testing purpose only with access to everything without OTP and max user restrictions upto 3 persons.
-    // if (user.username.toLowerCase() === "superuser") {
-    //   maxuser = 3;
-    //   const activeSessions = await Session.count({
-    //     where: { user_id: user.user_id, logout_time: null },
-    //   });
-    //   if (activeSessions >= maxuser) {
-    //     return res.status(403).json({
-    //       message: `Maximum concurrent sessions reached (${maxuser}). Please logout from other devices.`,
-    //     });
-    //   }
-    //   await Session.create({
-    //     user_id: user.user_id,
-    //     ip_address: req.ip,
-    //     user_agent_info: req.headers["user-agent"],
-    //   });
+    if (user.username.toLowerCase() === "superuser") {
+      maxuser = 3;
+      const activeSessions = await Session.count({
+        where: { user_id: user.user_id, logout_time: null },
+      });
+      if (activeSessions >= maxuser) {
+        return res.status(403).json({
+          message: `Maximum concurrent sessions reached (${maxuser}). Please logout from other devices.`,
+        });
+      }
+      await Session.create({
+        user_id: user.user_id,
+        ip_address: req.ip,
+        user_agent_info: req.headers["user-agent"],
+      });
       
-    //   const tokenPayload = {
-    //     userid: user.user_id,
-    //     roleType: ["admin", "phlebotomist", "doctor", "reception", "technician"],
-    //     department: ["admin", "phlebotomist", "doctor", "reception", "BIOCHEMISTRY","PATHOLOGY","MICROBIOLOGY","technician"],
-    //     authdiscper: user.authdiscper,
-    //     discountauthorization: user.discountauthorization,
-    //     doctor_id: user.doctor_id,
-    //     digitsignature: user.doc_sig || null,
-    //     //need multiple hospital access
-    //     hospitalid: user.hospitalid, 
-    //     nodalid: user.nodalid,
-    //     hospitalname: user.hospital?.hospitalname || null,
-    //     nodalname: user.nodal?.nodalname || null,
-    //     username: user.username,
-    //   };
-    //   const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
-    //     // expiresIn: '1h', // Token expiration can be set as needed
-    //   });
-    //   return res.status(200).json({
-    //     message: "Login successful as Super User",
-    //     token,
-    //   });
-    // }
+      const tokenPayload = {
+        userid: user.user_id,
+        roleType: ["admin", "phlebotomist", "doctor", "reception", "technician"],
+        department: ["admin", "phlebotomist", "doctor", "reception", "BIOCHEMISTRY","PATHOLOGY","MICROBIOLOGY","technician"],
+        authdiscper: user.authdiscper,
+        discountauthorization: user.discountauthorization,
+        doctor_id: user.doctor_id,
+        digitsignature: user.doc_sig || null,
+        //need multiple hospital access
+        hospitalid: user.hospitalid, 
+        nodalid: user.nodalid,
+        hospitalname: user.hospital?.hospitalname || null,
+        nodalname: user.nodal?.nodalname || null,
+        username: user.username,
+      };
+      const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
+        // expiresIn: '1h', // Token expiration can be set as needed
+      });
+      return res.status(200).json({
+        message: "Login successful as Super User",
+        token,
+      });
+    }
 
     // --- Send OTP for ALL successfully authenticated users ---
     const otp = generateOtp();
