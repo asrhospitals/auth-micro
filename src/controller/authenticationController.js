@@ -238,7 +238,7 @@ const assignRole = async (req, res) => {
 
     const requiredNodal =![
       "phlebotomist"
-    ]
+    ].includes(roleName);
 
     if (requiresHospital && !hospitalid) {
       return res
