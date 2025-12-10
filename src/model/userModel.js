@@ -72,7 +72,7 @@ const User = sequelize.define(
     },
     department: {
       type: DataTypes.ARRAY(DataTypes.STRING),
-      allowNull: false,
+      allowNull: true,
     },
     authdiscper:{
       type: DataTypes.INTEGER,

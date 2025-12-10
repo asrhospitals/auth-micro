@@ -232,19 +232,26 @@ const assignRole = async (req, res) => {
     const roleName = roleRecord.roletype;
 
     // 4. Conditional Hospital/Association Validation
-    const requiresHospitalOrNodal = ![
-      "admin",
+    const requiresHospital = ![
       "reception",
-      "technician",
-      "doctor",
-      "hr",
     ].includes(roleName);
 
-    if (requiresHospitalOrNodal && !hospitalid) {
+    const requiredNodal =![
+      "phlebotomist"
+    ]
+
+    if (requiresHospital && !hospitalid) {
       return res
         .status(400)
         .json({ message: "Hospital ID is required for this role" });
     }
+
+        if (requiredNodal && !nodalid) {
+      return res
+        .status(400)
+        .json({ message: "Nodal ID is required for this role" });
+    }
+
 
     if (hospitalid && !(await Hospital.findByPk(hospitalid))) {
       return res.status(400).json({ message: "Invalid Hospital ID provided." });
@@ -356,7 +363,7 @@ const login = async (req, res) => {
 
     //   const tokenPayload = {
     //     userid: user.user_id,
-    //     roleType: "phlebotomist",
+    //     roleType: "admin",
     //     department: ["admin", "phlebotomist", "doctor", "reception", "BIOCHEMISTRY","PATHOLOGY","MICROBIOLOGY","technician"],
     //     authdiscper: user.authdiscper,
     //     discountauthorization: user.discountauthorization,
