@@ -357,7 +357,7 @@ const login = async (req, res) => {
 
     //   const tokenPayload = {
     //     userid: user.user_id,
-    //     roleType: "phlebotomist",
+    //     roleType: "admin",
     //     department: [
     //       "admin",
     //       "phlebotomist",

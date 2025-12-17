@@ -18,9 +18,12 @@ const sendOtp = async (email, otp) => {
     secure: true,
     port: 465,
     auth: {
-      user: process.env.EMAIL_USER, // your email
-      pass: process.env.EMAIL_PASS, // your email password or app-specific password
+      user: process.env.EMAIL_USER, 
+      pass: process.env.EMAIL_PASS, 
     },
+    pool:true,
+    maxConnections: 5, 
+    maxMessages: 100, 
   });
 
   // Define email options
