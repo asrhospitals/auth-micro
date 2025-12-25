@@ -232,8 +232,8 @@ const assignRole = async (req, res) => {
     const roleName = roleRecord.roletype;
 
 // 4. Conditional Hospital/Association Validation
-const requiresHospital = !["reception", "admin"].includes(roleName);
-const requiredNodal   = !["phlebotomist", "admin"].includes(roleName);
+const requiresHospital = !["reception","phlebotomist","doctor"].includes(roleName);
+const requiredNodal   = !["phlebotomist","technician","doctor"].includes(roleName);
 
 if (requiresHospital && !hospitalid) {
   return res
