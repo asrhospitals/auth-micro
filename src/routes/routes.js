@@ -40,7 +40,7 @@ router.route("/users")
 router.get("/users/search", searchUsers); // GET /users/search
 
 // Special actions on the user collection
-router.post("/users/assign-role",authenticateToken ,assignRole); // POST /users/assign-role
+router.put("/users/assign-role",authenticateToken ,assignRole); // PUT /users/assign-role
 
 // Routes targeting a specific user resource: /users/:id
 router.route("/users/:id")

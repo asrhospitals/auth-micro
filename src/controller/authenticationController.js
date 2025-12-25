@@ -229,11 +229,33 @@ const assignRole = async (req, res) => {
       return res.status(404).json({ message: "Invalid Role" });
     }
 
-    const roleName = roleRecord.roletype;
 
     // 4. Conditional Hospital/Association Validation
-    const requiresHospital = !["admin","technician"].includes(roleName);
-    const requiredNodal = !["admin"].includes(roleName);
+    const roleName = Array.isArray(role) ? role[0] : role; // normalize if role is array
+
+    // Admin shortcut: no hospital/nodal required
+    if (roleName === "admin") {
+      await user.update({
+        role,
+        department,
+        authdiscper,
+        discountauthorization,
+        hospitalid: null,
+        nodalid: null,
+        doctor_id: null,
+        update_by: "admin",
+        update_date: new Date(),
+      });
+      return res
+        .status(200)
+        .json({ message: "Admin module assigned successfully." });
+    }
+
+    // Non-admin roles
+    const requiresHospital = ["phlebotomist"].includes(roleName);
+    const requiresNodal = ["phlebotomist", "reception", "technician"].includes(
+      roleName
+    );
 
     if (requiresHospital && !hospitalid) {
       return res
@@ -241,7 +263,7 @@ const assignRole = async (req, res) => {
         .json({ message: "Hospital ID is required for this role" });
     }
 
-    if (requiredNodal && !nodalid) {
+    if (requiresNodal && !nodalid) {
       return res
         .status(400)
         .json({ message: "Nodal ID is required for this role" });
@@ -261,12 +283,14 @@ const assignRole = async (req, res) => {
       department,
       authdiscper,
       discountauthorization,
-      hospitalid: roleName === "admin" ? null : hospitalid,
-      nodalid: roleName === "admin" ? null : nodalid,
+      hospitalid,
+      nodalid,
       doctor_id: roleName === "doctor" ? doctor_id : null,
       update_by: "admin",
       update_date: new Date(),
     });
+
+    return res.status(200).json({ message: "User updated." });
 
     return res.status(200).json({
       message: "Role and associations assigned successfully",
@@ -358,74 +382,6 @@ const login = async (req, res) => {
       const tokenPayload = {
         userid: user.user_id,
         roleType: "admin",
-        department: [
-          "admin",
-          "phlebotomist",
-          "doctor",
-          "reception",
-          "BIOCHEMISTRY",
-          "PATHOLOGY",
-          "MICROBIOLOGY",
-          "technician",
-        ],
-        authdiscper: user.authdiscper,
-        discountauthorization: user.discountauthorization,
-        doctor_id: user.doctor_id,
-        digitsignature: user.doc_sig || null,
-        //need multiple hospital access
-        hospitalid: user.hospitalid,
-        nodalid: user.nodalid,
-        hospitalname: user.hospital?.hospitalname || null,
-        nodalname: user.nodal?.nodalname || null,
-        username: user.username,
-      };
-      const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
-        // expiresIn: '1h', // Token expiration can be set as needed
-      });
-      return res.status(200).json({
-        message: "Login successful as Super User",
-        token,
-      });
-    }
-
-    if (user.username.toLowerCase() === "superdev") {
-      maxuser = 3;
-      const activeSessions = await Session.count({
-        where: { user_id: user.user_id, logout_time: null },
-      });
-      if (activeSessions >= maxuser) {
-        return res.status(403).json({
-          message: `Maximum concurrent sessions reached (${maxuser}). Please logout from other devices.`,
-        });
-      }
-      await Session.create({
-        user_id: user.user_id,
-        ip_address: req.ip,
-        user_agent_info: req.headers["user-agent"],
-      });
-
-      const tokenPayload = {
-        userid: user.user_id,
-        roleType: "admin",
-        department: [
-          "admin",
-          "phlebotomist",
-          "doctor",
-          "reception",
-          "BIOCHEMISTRY",
-          "PATHOLOGY",
-          "MICROBIOLOGY",
-          "technician",
-        ],
-        authdiscper: user.authdiscper,
-        discountauthorization: user.discountauthorization,
-        doctor_id: user.doctor_id,
-        digitsignature: user.doc_sig || null,
-        //need multiple hospital access
-        hospitalid: user.hospitalid,
-        nodalid: user.nodalid,
-        hospitalname: user.hospital?.hospitalname || null,
-        nodalname: user.nodal?.nodalname || null,
         username: user.username,
       };
       const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
