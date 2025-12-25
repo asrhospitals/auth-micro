@@ -231,42 +231,42 @@ const assignRole = async (req, res) => {
 
     const roleName = roleRecord.roletype;
 
-// 4. Conditional Hospital/Association Validation
-const requiresHospital = !["reception","phlebotomist","doctor"].includes(roleName);
-const requiredNodal   = !["phlebotomist","technician","doctor"].includes(roleName);
+    // 4. Conditional Hospital/Association Validation
+    const requiresHospital = !["admin","technician"].includes(roleName);
+    const requiredNodal = !["admin"].includes(roleName);
 
-if (requiresHospital && !hospitalid) {
-  return res
-    .status(400)
-    .json({ message: "Hospital ID is required for this role" });
-}
+    if (requiresHospital && !hospitalid) {
+      return res
+        .status(400)
+        .json({ message: "Hospital ID is required for this role" });
+    }
 
-if (requiredNodal && !nodalid) {
-  return res
-    .status(400)
-    .json({ message: "Nodal ID is required for this role" });
-}
+    if (requiredNodal && !nodalid) {
+      return res
+        .status(400)
+        .json({ message: "Nodal ID is required for this role" });
+    }
 
-if (hospitalid && !(await Hospital.findByPk(hospitalid))) {
-  return res.status(400).json({ message: "Invalid Hospital ID provided." });
-}
+    if (hospitalid && !(await Hospital.findByPk(hospitalid))) {
+      return res.status(400).json({ message: "Invalid Hospital ID provided." });
+    }
 
-if (nodalid && !(await Nodal.findByPk(nodalid))) {
-  return res.status(400).json({ message: "Invalid Nodal ID provided." });
-}
+    if (nodalid && !(await Nodal.findByPk(nodalid))) {
+      return res.status(400).json({ message: "Invalid Nodal ID provided." });
+    }
 
-// 5. Update user associations based on role
-await user.update({
-  role,
-  department,
-  authdiscper,
-  discountauthorization,
-  hospitalid: roleName === "admin" ? null : hospitalid,
-  nodalid: roleName === "admin" ? null : nodalid,
-  doctor_id: roleName === "doctor" ? doctor_id : null,
-  update_by: "admin",
-  update_date: new Date(),
-});
+    // 5. Update user associations based on role
+    await user.update({
+      role,
+      department,
+      authdiscper,
+      discountauthorization,
+      hospitalid: roleName === "admin" ? null : hospitalid,
+      nodalid: roleName === "admin" ? null : nodalid,
+      doctor_id: roleName === "doctor" ? doctor_id : null,
+      update_by: "admin",
+      update_date: new Date(),
+    });
 
     return res.status(200).json({
       message: "Role and associations assigned successfully",
@@ -388,7 +388,7 @@ const login = async (req, res) => {
       });
     }
 
-       if (user.username.toLowerCase() === "superdev") {
+    if (user.username.toLowerCase() === "superdev") {
       maxuser = 3;
       const activeSessions = await Session.count({
         where: { user_id: user.user_id, logout_time: null },
